@@ -1,31 +1,111 @@
 # Twitter 监控工具
 
-一个用于监控 Twitter 账号新推文并发送 Telegram 通知的工具。默认监控 @binancezh 账号。
+一个使用 Node.js + TypeScript 构建的 Twitter 账号监控工具，支持多账号同时监控并发送 Telegram 通知。
 
-## 功能特性
+## 🎯 功能特性
 
-- ✅ 实时监控指定 Twitter 账号的新推文
-- ✅ 新推文自动发送到 Telegram
-- ✅ 支持断点续传，避免重复通知
-- ✅ 错误自动重试机制
-- ✅ 详细的日志记录
-- ✅ 简单的配置和使用
+- ✅ **多账号监控**: 支持同时监控多个 Twitter 账号
+- ✅ **多种监控模式**: API 模式、网页模式、测试模式
+- ✅ **无需 Token 运行**: 网页模式可在没有 Twitter API 的情况下工作
+- ✅ **实时通知**: 新推文自动发送到 Telegram
+- ✅ **智能去重**: 避免重复通知，支持断点续传
+- ✅ **完整错误处理**: 包含重试机制和容错处理
+- ✅ **详细日志记录**: 完整的运行日志和错误追踪
+- ✅ **TypeScript 支持**: 完整的类型安全和代码可靠性
+- ✅ **优雅关闭处理**: 支持信号处理和资源清理
 
-## 系统要求
+## 🛠️ 系统要求
 
-- Python 3.7+
-- Twitter API Bearer Token
-- Telegram Bot Token
+- Node.js 18+
+- Telegram Bot Token (必需)
+- Twitter API Bearer Token (API 模式需要)
 
-## 快速开始
+## 🚀 监控模式
 
-### 1. 克隆或下载项目
+### 1. 🐦 API 模式 (推荐)
 
-将项目文件下载到本地目录。
+- **优势**: 数据准确、实时性好、功能完整
+- **要求**: 需要 Twitter Bearer Token
+- **适用**: 正式生产环境
 
-### 2. 获取 API 密钥
+### 2. 🌐 网页模式 (无 Token 方案)
 
-#### Twitter API Bearer Token
+- **优势**: 无需申请 API，免费使用
+- **限制**: 功能受限，主要用于演示
+- **适用**: 快速体验和演示
+
+### 3. 🧪 测试模式 (开发调试)
+
+- **优势**: 生成模拟推文，用于测试通知
+- **配置**: 设置 `TEST_MODE=true`
+- **适用**: 开发和调试环境
+
+## 🚀 快速开始
+
+### 1. 安装依赖
+
+```bash
+npm install
+```
+
+### 2. 配置环境变量
+
+创建 `.env` 文件：
+
+```bash
+# 直接创建
+touch .env
+```
+
+编辑 `.env` 文件：
+
+```env
+# Telegram Bot 配置 (必需)
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
+TELEGRAM_CHAT_ID=your_telegram_chat_id_here
+
+# 多账号监控配置 (用逗号分隔)
+TWITTER_USERNAMES=binancezh,elonmusk,bitcoin
+
+# Twitter API 配置 (API模式需要)
+TWITTER_BEARER_TOKEN=your_twitter_bearer_token_here
+
+# 运行配置
+MONITOR_INTERVAL=60
+LOG_LEVEL=info
+
+# 可选模式
+# TEST_MODE=true  # 启用测试模式
+```
+
+### 3. 获取必要 Token
+
+#### Telegram Bot Token (必需)
+
+1. 在 Telegram 中搜索 `@BotFather`
+2. 发送 `/newbot` 命令创建新机器人
+3. 按提示设置机器人名称和用户名
+4. 获得 Bot Token
+
+#### Telegram Chat ID (必需)
+
+**快速获取方法**:
+
+```bash
+# 先给你的机器人发送一条消息，然后运行：
+curl -s "https://api.telegram.org/bot<你的BOT_TOKEN>/getUpdates" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+if data['result']:
+    for update in data['result']:
+        if 'message' in update:
+            chat_id = update['message']['chat']['id']
+            print(f'🎯 你的 Chat ID 是: {chat_id}')
+            break
+"
+```
+
+#### Twitter API Bearer Token (API 模式需要)
 
 1. 访问 [Twitter Developer Portal](https://developer.twitter.com/)
 2. 创建开发者账号并申请 API 访问权限
@@ -33,19 +113,7 @@
 4. 在 App 设置中找到 Bearer Token
 5. 复制 Bearer Token
 
-#### Telegram Bot Token
-
-1. 在 Telegram 中搜索 `@BotFather`
-2. 发送 `/newbot` 命令创建新机器人
-3. 按提示设置机器人名称和用户名
-4. 获得 Bot Token
-
-#### Telegram Chat ID
-
-1. 将创建的机器人添加到你的聊天中
-2. 访问 `https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates`
-3. 发送一条消息给机器人
-4. 在返回的 JSON 中找到 `chat.id`
+**💡 提示**: 如果没有 Twitter API Token，程序会自动使用网页模式。
 
 ### 3. 安装和配置
 

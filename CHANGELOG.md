@@ -1,5 +1,50 @@
 # 更新日志
 
+## [1.1.0] - 2024-01-XX
+
+### 🎯 新特性
+
+- ✨ **多账号监控**: 支持同时监控多个 Twitter 账号，通过 `TWITTER_USERNAMES` 逗号分隔配置
+- 🌐 **网页模式**: 新增无需 Twitter API Token 的网页监控模式，免费监控公开账号
+- 🧪 **测试模式**: 新增测试模式，生成模拟推文用于开发调试
+- 🤖 **智能模式选择**: 自动根据配置选择最合适的监控模式
+
+### 🔧 改进
+
+- 📁 **存储系统**: 升级为支持多账号的分离存储，每个账号独立的推文 ID 文件
+- 🎮 **用户体验**: 更友好的运行提示和模式识别
+- 📊 **日志系统**: 增强的多账号监控日志，更清晰的运行状态显示
+- 🔄 **错误处理**: 改进的网络连接和 API 调用错误处理
+
+### 📦 架构更新
+
+- 新增 `WebTwitterMonitor` 网页模式监控器
+- 新增 `TestTwitterMonitor` 测试模式监控器
+- 重构 `TwitterMonitorInterface` 支持多账号
+- 升级 `FileStorage` 支持按用户名分离存储
+- 改进 `TelegramNotifier` 动态提取用户名
+
+### 💡 使用场景
+
+- **API 模式**: 有 Twitter Bearer Token 时的完整功能
+- **网页模式**: 无 Token 时的替代方案，适合演示和轻量使用
+- **测试模式**: 开发调试时的模拟环境
+
+### 配置示例
+
+**多账号监控**:
+
+```env
+TWITTER_USERNAMES=binancezh,elonmusk,bitcoin,cwjjj222
+```
+
+**测试模式**:
+
+```env
+TEST_MODE=true
+TWITTER_USERNAMES=binancezh,elonmusk
+```
+
 ## [1.0.0] - 2024-01-XX
 
 ### 新功能

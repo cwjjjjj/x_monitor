@@ -1,5 +1,6 @@
 import { TwitterMonitor } from "./twitter/monitor.js";
 import { TestTwitterMonitor } from "./twitter/test-monitor.js";
+import { WebTwitterMonitor } from "./twitter/web-monitor.js";
 import { TelegramNotifier } from "./telegram/notifier.js";
 import { FileStorage } from "./storage/index.js";
 import {
@@ -21,13 +22,16 @@ export class TwitterMonitorApp {
   private stopSignal: boolean = false;
 
   constructor() {
-    // 根据配置选择使用真实监控器还是测试监控器
+    // 根据配置选择监控器类型
     if (appConfig.testMode) {
       log.info("🧪 使用测试模式");
       this.twitterMonitor = new TestTwitterMonitor();
-    } else {
-      log.info("🐦 使用生产模式");
+    } else if (process.env.TWITTER_BEARER_TOKEN && process.env.TWITTER_BEARER_TOKEN !== "your_twitter_bearer_token_here") {
+      log.info("🐦 使用 Twitter API 模式");
       this.twitterMonitor = new TwitterMonitor();
+    } else {
+      log.info("🌐 使用网页模式监控真实推特");
+      this.twitterMonitor = new WebTwitterMonitor();
     }
 
     this.telegramNotifier = new TelegramNotifier();
