@@ -68,6 +68,9 @@ export class TelegramNotifier implements TelegramNotifierInterface {
       text = text.substring(0, 500) + "...";
     }
 
+    // 从URL中提取用户名
+    const username = this.extractUsernameFromUrl(tweet.url);
+
     // 格式化时间
     let formattedTime = tweet.createdAt;
     try {
@@ -93,7 +96,7 @@ export class TelegramNotifier implements TelegramNotifierInterface {
     const replyCount = metrics?.replyCount || 0;
 
     // 构建消息
-    const message = `🐦 <b>@binancezh 发布了新推文</b>
+    const message = `🐦 <b>@${username} 发布了新推文</b>
 
 📝 <b>内容:</b>
 ${this.escapeHtml(text)}
@@ -106,6 +109,18 @@ ${this.escapeHtml(text)}
 🔗 <a href="${tweet.url}">查看原推文</a>`;
 
     return message;
+  }
+
+  /**
+   * 从推文URL中提取用户名
+   */
+  private extractUsernameFromUrl(url: string): string {
+    try {
+      const match = url.match(/twitter\.com\/([^\/]+)\/status/);
+      return match?.[1] || "unknown";
+    } catch {
+      return "unknown";
+    }
   }
 
   /**

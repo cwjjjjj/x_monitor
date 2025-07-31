@@ -60,37 +60,61 @@ export class TwitterMonitorApp {
   }
 
   /**
-   * 检查新推文
+   * 检查所有用户的新推文
    */
   async checkNewTweets(): Promise<TwitterTweet[]> {
-    try {
-      // 获取上次检查的推文ID
-      const lastTweetId = await this.storage.getLastTweetId();
+    const allTweets: TwitterTweet[] = [];
+    const usernames = this.twitterMonitor.getUsernames();
 
-      // 获取最新推文
-      let tweets: TwitterTweet[];
-      if (lastTweetId) {
-        tweets = await this.twitterMonitor.getLatestTweets(10, lastTweetId);
-      } else {
-        // 首次运行，只获取最新一条推文
-        tweets = await this.twitterMonitor.getLatestTweets(1);
+    for (const username of usernames) {
+      try {
+        // 获取该用户上次检查的推文ID
+        const lastTweetId = await this.storage.getLastTweetId(username);
+
+        // 获取最新推文
+        let tweets: TwitterTweet[];
+        if (lastTweetId) {
+          tweets = await this.twitterMonitor.getLatestTweets(
+            username,
+            10,
+            lastTweetId
+          );
+        } else {
+          // 首次运行，只获取最新一条推文
+          tweets = await this.twitterMonitor.getLatestTweets(username, 1);
+        }
+
+        if (tweets.length > 0) {
+          // 按时间排序，确保按发布顺序处理
+          tweets.sort((a, b) => a.id.localeCompare(b.id));
+          log.info(`发现 @${username} 的 ${tweets.length} 条新推文`);
+
+          // 保存最新的推文ID
+          const latestTweetId = tweets[tweets.length - 1]!.id;
+          await this.storage.saveLastTweetId(username, latestTweetId);
+
+          allTweets.push(...tweets);
+        }
+
+        // 避免API限制，用户间稍作延迟
+        if (usernames.length > 1) {
+          await this.sleep(1000);
+        }
+      } catch (error) {
+        log.error(`检查 @${username} 新推文时发生错误`, error as Error);
       }
-
-      if (tweets.length > 0) {
-        // 按时间排序，确保按发布顺序处理
-        tweets.sort((a, b) => a.id.localeCompare(b.id));
-        log.info(`发现 ${tweets.length} 条新推文`);
-
-        // 保存最新的推文ID
-        const latestTweetId = tweets[tweets.length - 1]!.id;
-        await this.storage.saveLastTweetId(latestTweetId);
-      }
-
-      return tweets;
-    } catch (error) {
-      log.error("检查新推文时发生错误", error as Error);
-      return [];
     }
+
+    if (allTweets.length > 0) {
+      // 按时间排序所有推文
+      allTweets.sort(
+        (a, b) =>
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
+      log.info(`总共发现 ${allTweets.length} 条新推文`);
+    }
+
+    return allTweets;
   }
 
   /**
@@ -144,7 +168,12 @@ export class TwitterMonitorApp {
    */
   async run(): Promise<void> {
     log.info("启动 Twitter 监控程序");
-    log.info(`监控账号: @${this.twitterMonitor.getUsername()}`);
+    log.info(
+      `监控账号: ${this.twitterMonitor
+        .getUsernames()
+        .map((u) => `@${u}`)
+        .join(", ")}`
+    );
     log.info(`监控间隔: ${appConfig.monitor.interval} 秒`);
 
     // 初始化 Twitter 监控器

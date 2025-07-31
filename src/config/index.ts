@@ -39,10 +39,20 @@ function validateRequiredEnvVars(): void {
 export function getConfig(): Config {
   validateRequiredEnvVars();
 
+  // 解析用户名列表（支持逗号分隔的多个账号）
+  const usernamesStr =
+    process.env.TWITTER_USERNAMES ||
+    process.env.TWITTER_USERNAME ||
+    "binancezh";
+  const usernames = usernamesStr
+    .split(",")
+    .map((name) => name.trim())
+    .filter((name) => name.length > 0);
+
   return {
     twitter: {
       bearerToken: process.env.TWITTER_BEARER_TOKEN || "test_token",
-      username: process.env.TWITTER_USERNAME || "binancezh",
+      usernames: usernames,
     },
     telegram: {
       botToken: process.env.TELEGRAM_BOT_TOKEN!,

@@ -37,7 +37,7 @@ export interface TwitterUser {
 export interface Config {
   twitter: {
     bearerToken: string;
-    username: string;
+    usernames: string[]; // 支持多个用户名
   };
   telegram: {
     botToken: string;
@@ -56,16 +56,22 @@ export interface Config {
  * 存储相关类型定义
  */
 export interface StorageInterface {
-  saveLastTweetId(tweetId: string): Promise<boolean>;
-  getLastTweetId(): Promise<string>;
+  saveLastTweetId(username: string, tweetId: string): Promise<boolean>;
+  getLastTweetId(username: string): Promise<string>;
 }
 
 /**
  * 监控器相关类型定义
  */
 export interface TwitterMonitorInterface {
-  getLatestTweets(count?: number, sinceId?: string): Promise<TwitterTweet[]>;
-  getUserInfo(): Promise<TwitterUser | null>;
+  getLatestTweets(
+    username: string,
+    count?: number,
+    sinceId?: string
+  ): Promise<TwitterTweet[]>;
+  getUserInfo(username: string): Promise<TwitterUser | null>;
+  getUsernames(): string[];
+  initialize(): Promise<void>;
 }
 
 /**

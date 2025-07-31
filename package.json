@@ -9,7 +9,9 @@
     "start": "node dist/main.js",
     "dev": "tsx watch src/main.ts",
     "test": "node --test",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "cz": "git add . && git cz",
+    "czp": "yarn cz && git push -u origin HEAD"
   },
   "keywords": [
     "twitter",

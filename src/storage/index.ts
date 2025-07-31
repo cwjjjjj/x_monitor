@@ -8,47 +8,70 @@ import { log } from "../utils/logger.js";
  * 用于保存和读取最后一条推文的ID
  */
 export class FileStorage implements StorageInterface {
-  private readonly filePath: string;
+  private readonly baseDir: string;
 
-  constructor(filePath: string = "last_tweet_id.txt") {
-    this.filePath = resolve(filePath);
+  constructor(baseDir: string = "data") {
+    this.baseDir = resolve(baseDir);
+    // 确保数据目录存在
+    this.ensureDataDir();
   }
 
   /**
-   * 保存最后一条推文的ID
+   * 确保数据目录存在
    */
-  async saveLastTweetId(tweetId: string): Promise<boolean> {
+  private async ensureDataDir(): Promise<void> {
     try {
-      await fs.writeFile(this.filePath, tweetId, "utf-8");
-      log.info(`保存最后推文ID: ${tweetId}`);
+      await fs.mkdir(this.baseDir, { recursive: true });
+    } catch (error) {
+      log.error("创建数据目录失败", error as Error);
+    }
+  }
+
+  /**
+   * 获取用户的推文ID文件路径
+   */
+  private getUserFilePath(username: string): string {
+    return resolve(this.baseDir, `last_tweet_id_${username}.txt`);
+  }
+
+  /**
+   * 保存指定用户的最后一条推文ID
+   */
+  async saveLastTweetId(username: string, tweetId: string): Promise<boolean> {
+    try {
+      await this.ensureDataDir();
+      const filePath = this.getUserFilePath(username);
+      await fs.writeFile(filePath, tweetId, "utf-8");
+      log.info(`保存 @${username} 最后推文ID: ${tweetId}`);
       return true;
     } catch (error) {
-      log.error("保存推文ID失败", error as Error);
+      log.error(`保存 @${username} 推文ID失败`, error as Error);
       return false;
     }
   }
 
   /**
-   * 获取最后一条推文的ID
+   * 获取指定用户的最后一条推文ID
    */
-  async getLastTweetId(): Promise<string> {
+  async getLastTweetId(username: string): Promise<string> {
     try {
-      const exists = await this.fileExists();
+      const filePath = this.getUserFilePath(username);
+      const exists = await this.fileExists(filePath);
       if (!exists) {
-        log.info("未找到历史推文ID文件，将获取最新推文");
+        log.info(`未找到 @${username} 历史推文ID文件，将获取最新推文`);
         return "";
       }
 
-      const tweetId = await fs.readFile(this.filePath, "utf-8");
+      const tweetId = await fs.readFile(filePath, "utf-8");
       const cleanId = tweetId.trim();
 
       if (cleanId) {
-        log.info(`读取到最后推文ID: ${cleanId}`);
+        log.info(`读取到 @${username} 最后推文ID: ${cleanId}`);
       }
 
       return cleanId;
     } catch (error) {
-      log.error("读取推文ID失败", error as Error);
+      log.error(`读取 @${username} 推文ID失败`, error as Error);
       return "";
     }
   }
@@ -56,9 +79,9 @@ export class FileStorage implements StorageInterface {
   /**
    * 检查文件是否存在
    */
-  private async fileExists(): Promise<boolean> {
+  private async fileExists(filePath: string): Promise<boolean> {
     try {
-      await fs.access(this.filePath);
+      await fs.access(filePath);
       return true;
     } catch {
       return false;
@@ -66,18 +89,41 @@ export class FileStorage implements StorageInterface {
   }
 
   /**
-   * 删除存储文件
+   * 清除指定用户的存储文件
    */
-  async clear(): Promise<boolean> {
+  async clearUser(username: string): Promise<boolean> {
     try {
-      const exists = await this.fileExists();
+      const filePath = this.getUserFilePath(username);
+      const exists = await this.fileExists(filePath);
       if (exists) {
-        await fs.unlink(this.filePath);
-        log.info("已清除历史推文ID文件");
+        await fs.unlink(filePath);
+        log.info(`已清除 @${username} 历史推文ID文件`);
       }
       return true;
     } catch (error) {
-      log.error("清除存储文件失败", error as Error);
+      log.error(`清除 @${username} 存储文件失败`, error as Error);
+      return false;
+    }
+  }
+
+  /**
+   * 清除所有存储文件
+   */
+  async clearAll(): Promise<boolean> {
+    try {
+      const files = await fs.readdir(this.baseDir);
+      const tweetIdFiles = files.filter(
+        (file) => file.startsWith("last_tweet_id_") && file.endsWith(".txt")
+      );
+
+      for (const file of tweetIdFiles) {
+        await fs.unlink(resolve(this.baseDir, file));
+      }
+
+      log.info(`已清除所有历史推文ID文件 (${tweetIdFiles.length} 个文件)`);
+      return true;
+    } catch (error) {
+      log.error("清除所有存储文件失败", error as Error);
       return false;
     }
   }

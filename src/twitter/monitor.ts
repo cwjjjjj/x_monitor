@@ -13,14 +13,18 @@ import { log } from "../utils/logger.js";
  */
 export class TwitterMonitor implements TwitterMonitorInterface {
   private readonly client: TwitterApi;
-  private readonly username: string;
-  private userId: string | null = null;
+  private readonly usernames: string[];
+  private userIds: Map<string, string> = new Map();
 
   constructor() {
-    this.username = appConfig.twitter.username;
+    this.usernames = appConfig.twitter.usernames;
     this.client = new TwitterApi(appConfig.twitter.bearerToken);
 
-    log.info(`初始化 Twitter 监控器，目标用户: @${this.username}`);
+    log.info(
+      `初始化 Twitter 监控器，目标用户: ${this.usernames
+        .map((u) => `@${u}`)
+        .join(", ")}`
+    );
   }
 
   /**
@@ -28,24 +32,34 @@ export class TwitterMonitor implements TwitterMonitorInterface {
    */
   async initialize(): Promise<void> {
     try {
-      const user = await this.client.v2.userByUsername(this.username, {
-        "user.fields": [
-          "id",
-          "name",
-          "username",
-          "description",
-          "public_metrics",
-        ],
-      });
+      for (const username of this.usernames) {
+        const user = await this.client.v2.userByUsername(username, {
+          "user.fields": [
+            "id",
+            "name",
+            "username",
+            "description",
+            "public_metrics",
+          ],
+        });
 
-      if (!user.data) {
-        throw new Error(`无法找到用户 @${this.username}`);
+        if (!user.data) {
+          log.warn(`无法找到用户 @${username}，跳过该用户`);
+          continue;
+        }
+
+        this.userIds.set(username, user.data.id);
+        log.info(`成功连接用户: @${username} (ID: ${user.data.id})`);
+
+        // 避免API限制，间隔请求
+        await this.sleep(1000);
       }
 
-      this.userId = user.data.id;
-      log.info(
-        `成功连接到 Twitter API，监控用户: @${this.username} (ID: ${this.userId})`
-      );
+      if (this.userIds.size === 0) {
+        throw new Error("没有找到任何有效的用户");
+      }
+
+      log.info(`Twitter API 初始化完成，共监控 ${this.userIds.size} 个用户`);
     } catch (error) {
       log.error("初始化 Twitter 客户端失败", error as Error);
       throw error;
@@ -53,14 +67,17 @@ export class TwitterMonitor implements TwitterMonitorInterface {
   }
 
   /**
-   * 获取用户的最新推文
+   * 获取指定用户的最新推文
    */
   async getLatestTweets(
+    username: string,
     count: number = 10,
     sinceId?: string
   ): Promise<TwitterTweet[]> {
-    if (!this.userId) {
-      await this.initialize();
+    const userId = this.userIds.get(username);
+    if (!userId) {
+      log.error(`用户 @${username} 未初始化`);
+      return [];
     }
 
     try {
@@ -79,7 +96,7 @@ export class TwitterMonitor implements TwitterMonitorInterface {
         options.since_id = sinceId;
       }
 
-      const tweets = await this.client.v2.userTimeline(this.userId!, options);
+      const tweets = await this.client.v2.userTimeline(userId, options);
 
       if (
         !tweets.data ||
@@ -94,7 +111,7 @@ export class TwitterMonitor implements TwitterMonitorInterface {
         id: tweet.id,
         text: tweet.text,
         createdAt: tweet.created_at || new Date().toISOString(),
-        authorId: tweet.author_id || this.userId!,
+        authorId: tweet.author_id || userId,
         publicMetrics: tweet.public_metrics
           ? {
               retweetCount: tweet.public_metrics.retweet_count || 0,
@@ -103,23 +120,23 @@ export class TwitterMonitor implements TwitterMonitorInterface {
               quoteCount: tweet.public_metrics.quote_count || 0,
             }
           : undefined,
-        url: `https://twitter.com/${this.username}/status/${tweet.id}`,
+        url: `https://twitter.com/${username}/status/${tweet.id}`,
       }));
 
-      log.info(`获取到 ${tweetList.length} 条推文`);
+      log.info(`获取到 @${username} 的 ${tweetList.length} 条推文`);
       return tweetList;
     } catch (error) {
-      log.error("获取推文失败", error as Error);
+      log.error(`获取 @${username} 推文失败`, error as Error);
       return [];
     }
   }
 
   /**
-   * 获取用户信息
+   * 获取指定用户信息
    */
-  async getUserInfo(): Promise<TwitterUser | null> {
+  async getUserInfo(username: string): Promise<TwitterUser | null> {
     try {
-      const user = await this.client.v2.userByUsername(this.username, {
+      const user = await this.client.v2.userByUsername(username, {
         "user.fields": [
           "id",
           "name",
@@ -148,22 +165,29 @@ export class TwitterMonitor implements TwitterMonitorInterface {
           : undefined,
       };
     } catch (error) {
-      log.error("获取用户信息失败", error as Error);
+      log.error(`获取 @${username} 用户信息失败`, error as Error);
       return null;
     }
   }
 
   /**
-   * 获取监控的用户名
+   * 获取所有监控的用户名
    */
-  getUsername(): string {
-    return this.username;
+  getUsernames(): string[] {
+    return [...this.usernames];
   }
 
   /**
-   * 获取用户ID
+   * 获取指定用户的ID
    */
-  getUserId(): string | null {
-    return this.userId;
+  getUserId(username: string): string | null {
+    return this.userIds.get(username) || null;
+  }
+
+  /**
+   * 休眠函数
+   */
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
